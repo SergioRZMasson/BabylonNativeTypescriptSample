@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.0.0)
-project(BabylonNativeExample VERSION 0.1.0)
+project(TypescriptExample VERSION 0.1.0)
 
 add_subdirectory(Dependencies)
 
-add_executable(BabylonNativeExample main.cpp)
+add_executable(TypescriptExample main.cpp)
 
-target_link_libraries(BabylonNativeExample 
+target_link_libraries(TypescriptExample
     PRIVATE AppRuntime
     PRIVATE NativeEngine
     PRIVATE NativeInput
@@ -16,55 +16,37 @@ target_link_libraries(BabylonNativeExample
     PRIVATE XMLHttpRequest
     PRIVATE Canvas
     PRIVATE glfw
-    PRIVATE imgui
-    ${ADDITIONAL_LIBRARIES}
-    ${BABYLON_NATIVE_PLAYGROUND_EXTENSION_LIBRARIES})
+    PRIVATE GraphicsDevice)
 
-target_compile_features(BabylonNativeExample PRIVATE cxx_std_17)
+target_compile_features(TypescriptExample PRIVATE cxx_std_17)
 
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/node_modules/babylonjs/babylon.max.js")
-    set(BABYLON_SCRIPTS
-        "node_modules/babylonjs-loaders/babylonjs.loaders.js"
-        "node_modules/babylonjs-loaders/babylonjs.loaders.js.map"
-        "node_modules/babylonjs/babylon.max.js"
-        "node_modules/babylonjs/babylon.max.js.map"
-        "node_modules/babylonjs-materials/babylonjs.materials.js"
-        "node_modules/babylonjs-materials/babylonjs.materials.js.map"
-        "node_modules/babylonjs-gui/babylon.gui.js"
-        "node_modules/babylonjs-gui/babylon.gui.js.map")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Typescript/build/bundle.js")
+    set(SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/Typescript/build/bundle.js")
+    target_sources(TypescriptExample PRIVATE ${SCRIPTS})
 
-    set(SCRIPTS
-        "Scripts/game.js"
-        "Scripts/ammo.js"
-        "Scripts/meshwriter.min.js"
-        "Scripts/recast.js")
-
-    target_sources(BabylonNativeExample PRIVATE ${BABYLON_SCRIPTS} ${SCRIPTS})
-
-    foreach(SCRIPT ${BABYLON_SCRIPTS} ${SCRIPTS})
+    foreach(SCRIPT ${SCRIPTS})
         get_filename_component(SCRIPT_NAME "${SCRIPT}" NAME)
         add_custom_command(
             OUTPUT "${CMAKE_CFG_INTDIR}/Scripts/${SCRIPT_NAME}"
-            COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_CURRENT_SOURCE_DIR}/${SCRIPT}" "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/Scripts/${SCRIPT_NAME}"
+            COMMAND "${CMAKE_COMMAND}" -E copy "${SCRIPT}" "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/Scripts/${SCRIPT_NAME}"
             COMMENT "Copying ${SCRIPT_NAME}"
-            MAIN_DEPENDENCY "${CMAKE_CURRENT_SOURCE_DIR}/${SCRIPT}")
+            MAIN_DEPENDENCY "${SCRIPT}")
     endforeach()
     
-    source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${BABYLON_SCRIPTS} ${SCRIPTS})
-
+    source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SCRIPTS})
 else()
-    message(FATAL_ERROR "Babylon.js package is required. Please run npm install on this folder.")
+    message(FATAL_ERROR "Javascript bundle is required. Please run npm run build on this Typescript.")
 endif()
 
-set_property(DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT BabylonNativeExample)
+set_property(DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT TypescriptExample)
 
 if(MSVC)
-    target_compile_definitions(BabylonNativeExample PRIVATE TARGET_PLATFORM_WINDOWS)
+    target_compile_definitions(TypescriptExample PRIVATE TARGET_PLATFORM_WINDOWS)
 elseif(APPLE)
-    target_compile_definitions(BabylonNativeExample PRIVATE TARGET_PLATFORM_OSX)
+    target_compile_definitions(TypescriptExample PRIVATE TARGET_PLATFORM_OSX)
     find_library(JSCORE_LIBRARY JavaScriptCore)
-    target_link_libraries(BabylonNativeExample PRIVATE ${JSCORE_LIBRARY})
-    target_link_libraries(BabylonNativeExample PRIVATE "-framework Cocoa" "-framework MetalKit" "-framework QuartzCore" "-framework CoreFoundation" "-framework CoreGraphics")
+    target_link_libraries(TypescriptExample PRIVATE ${JSCORE_LIBRARY})
+    target_link_libraries(TypescriptExample PRIVATE "-framework Cocoa" "-framework MetalKit" "-framework QuartzCore" "-framework CoreFoundation" "-framework CoreGraphics")
 else()
-    target_compile_definitions(BabylonNativeExample PRIVATE TARGET_PLATFORM_LINUX)
+    target_compile_definitions(TypescriptExample PRIVATE TARGET_PLATFORM_LINUX)
 endif()

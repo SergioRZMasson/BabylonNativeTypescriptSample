@@ -9,6 +9,11 @@ set_property(TARGET glfw PROPERTY FOLDER Dependencies/glfw)
 set_property(TARGET update_mappings PROPERTY FOLDER Dependencies/glfw)
 
 set(BABYLON_NATIVE_BUILD_APPS OFF)
+set(BABYLON_NATIVE_PLUGIN_TESTUTILS OFF)
+set(BABYLON_NATIVE_PLUGIN_NATIVEXR OFF)
+set(BABYLON_NATIVE_PLUGIN_NATIVECAMERA OFF)
+set(NAPI_JAVASCRIPT_ENGINE "Chakra")
+
 add_subdirectory(BabylonNative)
 
 # Babylon Native Core
@@ -75,5 +80,18 @@ if(BABYLON_NATIVE_POLYFILL_CANVAS)
     set_property(TARGET Canvas PROPERTY FOLDER Dependencies/BabylonNative/Polyfills/)
 endif()
 
-add_subdirectory(imgui)
-set_property(TARGET imgui PROPERTY FOLDER Dependencies/)
+if(TARGET gtest)
+    set_property(TARGET gtest PROPERTY FOLDER Dependencies/BabylonNative/Tests/)
+endif()
+
+if(TARGET gtest_main)
+    set_property(TARGET gtest_main PROPERTY FOLDER Dependencies/BabylonNative/Tests/)
+endif()
+
+if(TARGET gmock)
+    set_property(TARGET gmock PROPERTY FOLDER Dependencies/BabylonNative/Tests/)
+endif()
+
+if(TARGET gmock_main)
+    set_property(TARGET gmock_main PROPERTY FOLDER Dependencies/BabylonNative/Tests/)
+endif()

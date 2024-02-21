@@ -1,6 +1,7 @@
 #include <filesystem>
 #include <iostream>
 #include <stdio.h>
+#include <assert.h>
 
 #include <Babylon/AppRuntime.h>
 #include <Babylon/Graphics/Device.h>
@@ -29,40 +30,39 @@
 #endif //
 #include <GLFW/glfw3native.h>
 
-std::unique_ptr<Babylon::AppRuntime> runtime{};
-std::unique_ptr<Babylon::Graphics::Device> device{};
-std::unique_ptr<Babylon::Graphics::DeviceUpdate> update{};
-Babylon::Plugins::NativeInput *nativeInput{};
-std::unique_ptr<Babylon::Polyfills::Canvas> nativeCanvas{};
-bool minimized = false;
-
-#define INITIAL_WIDTH 1920
-#define INITIAL_HEIGHT 1080
-
-static void *glfwNativeWindowHandle(GLFWwindow *_window)
+static void* glfwNativeWindowHandle(GLFWwindow* _window)
 {
 #if TARGET_PLATFORM_LINUX
-	return (void *)(uintptr_t)glfwGetX11Window(_window);
+	return (void*)(uintptr_t)glfwGetX11Window(_window);
 #elif TARGET_PLATFORM_OSX
-	return ((NSWindow *)glfwGetCocoaWindow(_window)).contentView;
+	return ((NSWindow*)glfwGetCocoaWindow(_window)).contentView;
 #elif TARGET_PLATFORM_WINDOWS
 	return glfwGetWin32Window(_window);
 #endif // TARGET_PLATFORM_
 }
 
+std::unique_ptr<Babylon::AppRuntime> g_runtime{};
+std::unique_ptr<Babylon::Graphics::Device> g_device{};
+std::unique_ptr<Babylon::Graphics::DeviceUpdate> g_update{};
+std::unique_ptr<Babylon::Polyfills::Canvas> g_nativeCanvas{};
+Babylon::Plugins::NativeInput* g_nativeInput{};
+
+#define INITIAL_WIDTH 1920
+#define INITIAL_HEIGHT 1080
+
 void Uninitialize()
 {
-	if (device)
+	if (g_device)
 	{
-		update->Finish();
-		device->FinishRenderingCurrentFrame();
+		g_update->Finish();
+		g_device->FinishRenderingCurrentFrame();
 	}
 
-	nativeInput = {};
-	runtime.reset();
-	nativeCanvas.reset();
-	update.reset();
-	device.reset();
+	g_nativeInput = {};
+	g_runtime.reset();
+	g_nativeCanvas.reset();
+	g_update.reset();
+	g_device.reset();
 }
 
 void RefreshBabylon(GLFWwindow *window)
@@ -72,22 +72,22 @@ void RefreshBabylon(GLFWwindow *window)
 	int width, height;
 	glfwGetWindowSize(window, &width, &height);
 
-	Babylon::Graphics::WindowConfiguration graphicsConfig{};
-	graphicsConfig.Window = (Babylon::Graphics::WindowType)glfwNativeWindowHandle(window);
+	Babylon::Graphics::Configuration graphicsConfig{};
+	graphicsConfig.Window = (Babylon::Graphics::WindowT)glfwNativeWindowHandle(window);
 	graphicsConfig.Width = width;
 	graphicsConfig.Height = height;
 	graphicsConfig.MSAASamples = 4;
 
-	device = Babylon::Graphics::Device::Create(graphicsConfig);
-	update = std::make_unique<Babylon::Graphics::DeviceUpdate>(device->GetUpdate("update"));
-	device->StartRenderingCurrentFrame();
-	update->Start();
+	g_device = std::make_unique<Babylon::Graphics::Device>(graphicsConfig);
+	g_update = std::make_unique<Babylon::Graphics::DeviceUpdate>(g_device->GetUpdate("update"));
+	g_device->StartRenderingCurrentFrame();
+	g_update->Start();
 
-	runtime = std::make_unique<Babylon::AppRuntime>();
+	g_runtime = std::make_unique<Babylon::AppRuntime>();
 
-	runtime->Dispatch([](Napi::Env env)
+	g_runtime->Dispatch([](Napi::Env env)
 	{
-		device->AddToJavaScript( env );
+		g_device->AddToJavaScript( env );
 
 		Babylon::Polyfills::Console::Initialize( env, []( const char* message, auto ) {
 			std::cout << message << std::endl;
@@ -95,86 +95,73 @@ void RefreshBabylon(GLFWwindow *window)
 
 		Babylon::Polyfills::Window::Initialize( env );
 		Babylon::Polyfills::XMLHttpRequest::Initialize( env );
-
-		nativeCanvas = std::make_unique <Babylon::Polyfills::Canvas>( Babylon::Polyfills::Canvas::Initialize( env ) );
-
+		g_nativeCanvas = std::make_unique <Babylon::Polyfills::Canvas>( Babylon::Polyfills::Canvas::Initialize( env ) );
 		Babylon::Plugins::NativeEngine::Initialize( env );
 		Babylon::Plugins::NativeOptimizations::Initialize( env );
-
-		nativeInput = &Babylon::Plugins::NativeInput::CreateForJavaScript( env );
-		auto context = &Babylon::Graphics::DeviceContext::GetFromJavaScript( env );
-
-		ImGui_ImplBabylon_SetContext( context ); 
+		g_nativeInput = &Babylon::Plugins::NativeInput::CreateForJavaScript( env );
 	});
 
-	Babylon::ScriptLoader loader{*runtime};
-	loader.Eval("document = {}", "");
-	loader.LoadScript("app:///Scripts/ammo.js");
-	// Commenting out recast.js for now because v8jsi is incompatible with asm.js.
-	// loader.LoadScript("app:///Scripts/recast.js");
-	loader.LoadScript("app:///Scripts/babylon.max.js");
-	loader.LoadScript("app:///Scripts/babylonjs.loaders.js");
-	loader.LoadScript("app:///Scripts/babylonjs.materials.js");
-	loader.LoadScript("app:///Scripts/babylon.gui.js");
-	loader.LoadScript("app:///Scripts/meshwriter.min.js");
-	loader.LoadScript("app:///Scripts/game.js");
+	Babylon::ScriptLoader loader{*g_runtime};
+	loader.LoadScript("app:///Scripts/bundle.js");
 }
 
-static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
+static void KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
 	if (key == GLFW_KEY_R && action == GLFW_PRESS)
 	{
 		RefreshBabylon(window);
 	}
-	else if (key == GLFW_KEY_D && action == GLFW_PRESS)
-	{
-		s_showImgui = !s_showImgui;
-	}
 }
 
-void mouse_button_callback(GLFWwindow *window, int button, int action, int mods)
+static void MouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
 {
-	if (s_showImgui)
+	if (g_nativeInput == nullptr)
 		return;
-
+	
 	double xpos, ypos;
 	glfwGetCursorPos(window, &xpos, &ypos);
 	int32_t x = static_cast<int32_t>(xpos);
 	int32_t y = static_cast<int32_t>(ypos);
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
-		nativeInput->MouseDown(Babylon::Plugins::NativeInput::LEFT_MOUSE_BUTTON_ID, x, y);
+		g_nativeInput->MouseDown(Babylon::Plugins::NativeInput::LEFT_MOUSE_BUTTON_ID, x, y);
 	else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
-		nativeInput->MouseUp(Babylon::Plugins::NativeInput::LEFT_MOUSE_BUTTON_ID, x, y);
+		g_nativeInput->MouseUp(Babylon::Plugins::NativeInput::LEFT_MOUSE_BUTTON_ID, x, y);
 	else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
-		nativeInput->MouseDown(Babylon::Plugins::NativeInput::RIGHT_MOUSE_BUTTON_ID, x, y);
+		g_nativeInput->MouseDown(Babylon::Plugins::NativeInput::RIGHT_MOUSE_BUTTON_ID, x, y);
 	else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
-		nativeInput->MouseUp(Babylon::Plugins::NativeInput::RIGHT_MOUSE_BUTTON_ID, x, y);
+		g_nativeInput->MouseUp(Babylon::Plugins::NativeInput::RIGHT_MOUSE_BUTTON_ID, x, y);
 	else if (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS)
-		nativeInput->MouseDown(Babylon::Plugins::NativeInput::MIDDLE_MOUSE_BUTTON_ID, x, y);
+		g_nativeInput->MouseDown(Babylon::Plugins::NativeInput::MIDDLE_MOUSE_BUTTON_ID, x, y);
 	else if (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_RELEASE)
-		nativeInput->MouseUp(Babylon::Plugins::NativeInput::MIDDLE_MOUSE_BUTTON_ID, x, y);
+		g_nativeInput->MouseUp(Babylon::Plugins::NativeInput::MIDDLE_MOUSE_BUTTON_ID, x, y);
 }
 
-static void cursor_position_callback(GLFWwindow *window, double xpos, double ypos)
+static void CursorPositionCallback(GLFWwindow *window, double xpos, double ypos)
 {
+	if (g_nativeInput == nullptr)
+		return;
+	
 	int32_t x = static_cast<int32_t>(xpos);
 	int32_t y = static_cast<int32_t>(ypos);
 
-	nativeInput->MouseMove(x, y);
+	g_nativeInput->MouseMove(x, y);
 }
 
-void scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
+static void ScrollCallback(GLFWwindow *window, double xoffset, double yoffset)
 {
-	if (s_showImgui)
+	if (g_nativeInput == nullptr)
 		return;
 
-	nativeInput->MouseWheel(Babylon::Plugins::NativeInput::MOUSEWHEEL_Y_ID, static_cast<int>(-yoffset * 100.0));
+	g_nativeInput->MouseWheel(Babylon::Plugins::NativeInput::MOUSEWHEEL_Y_ID, static_cast<int>(-yoffset * 100.0));
 }
 
-static void window_resize_callback(GLFWwindow *window, int width, int height)
+static void WindowResizeCallback(GLFWwindow *window, int width, int height)
 {
-	device->UpdateSize(width, height);
+	if (g_device == nullptr)
+		return;
+	
+	g_device->UpdateSize(width, height);
 }
 
 int main()
@@ -193,22 +180,22 @@ int main()
 		exit(EXIT_FAILURE);
 	}
 
-	glfwSetKeyCallback(window, key_callback);
-	glfwSetWindowSizeCallback(window, window_resize_callback);
-	glfwSetCursorPosCallback(window, cursor_position_callback);
-	glfwSetMouseButtonCallback(window, mouse_button_callback);
-	glfwSetScrollCallback(window, scroll_callback);
+	glfwSetKeyCallback(window, KeyCallback);
+	glfwSetWindowSizeCallback(window, WindowResizeCallback);
+	glfwSetCursorPosCallback(window, CursorPositionCallback);
+	glfwSetMouseButtonCallback(window, MouseButtonCallback);
+	glfwSetScrollCallback(window, ScrollCallback);
 
 	RefreshBabylon(window);
 
 	while (!glfwWindowShouldClose(window))
 	{
-		if (device)
+		if (g_device)
 		{
-			update->Finish();
-			device->FinishRenderingCurrentFrame();
-			device->StartRenderingCurrentFrame();
-			update->Start();
+			g_update->Finish();
+			g_device->FinishRenderingCurrentFrame();
+			g_device->StartRenderingCurrentFrame();
+			g_update->Start();
 		}
 		glfwPollEvents();	
 	}

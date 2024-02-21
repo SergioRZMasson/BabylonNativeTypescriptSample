@@ -1,3 +1,5 @@
 node_modules
-app/lib
+lib
 *.tsbuildinfo
+build
+build/lib
