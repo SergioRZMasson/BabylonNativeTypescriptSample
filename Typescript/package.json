@@ -1,10 +1,10 @@
 {
-    "name": "deploy",
+    "name": "app",
     "version": "1.0.0",
     "description": "",
     "private": true,
     "scripts": {
-      "build": "webpack --config webpack.build.config.js --env Chakra=true"
+      "build": "webpack --config webpack.build.config.js"
     },
     "keywords": [],
     "author": "",
