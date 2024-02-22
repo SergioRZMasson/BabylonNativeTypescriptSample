@@ -4,7 +4,6 @@ import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
-import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 
 import "@babylonjs/core/Helpers/sceneHelpers";
 
@@ -34,8 +33,6 @@ var sphere = MeshBuilder.CreateSphere(
   { diameter: 2, segments: 32 },
   scene
 );
-
-sphere.material = new StandardMaterial("myMaterial", scene);
 
 // Move the sphere upward 1/2 its height
 sphere.position.y = 1;

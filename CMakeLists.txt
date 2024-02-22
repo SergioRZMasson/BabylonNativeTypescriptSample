@@ -35,7 +35,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/TypeScript/build/bundle.js")
     
     source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SCRIPT})
 else()
-    message(FATAL_ERROR "Javascript bundle is required. Please run npm run build from the TypeScript folder.")
+    message(FATAL_ERROR "Javascript bundle is required. Please run 'npm run build' from the TypeScript folder.")
 endif()
 
 set_property(DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT TypeScriptExample)
